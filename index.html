@@ -470,16 +470,34 @@
 
     bikingSlider.addEventListener('input', updatePoint);
     smokingSlider.addEventListener('input', updatePoint);
-    bikingValue.addEventListener('input', () => {
-      const v = clamp(parseFloat(bikingValue.value) || 0, parseFloat(bikingSlider.min), parseFloat(bikingSlider.max));
-      bikingSlider.value = v;
-      updatePoint();
-    });
-    smokingValue.addEventListener('input', () => {
-      const v = clamp(parseFloat(smokingValue.value) || 0, parseFloat(smokingSlider.min), parseFloat(smokingSlider.max));
-      smokingSlider.value = v;
-      updatePoint();
-    });
+
+    function wireNumberInput(inputEl, sliderEl) {
+      const min = parseFloat(sliderEl.min);
+      const max = parseFloat(sliderEl.max);
+
+      function commit() {
+        const raw = parseFloat(inputEl.value);
+        const fallback = parseFloat(sliderEl.value);
+        const v = Number.isFinite(raw) ? clamp(raw, min, max) : fallback;
+        sliderEl.value = v;
+        inputEl.value = v.toFixed(1);
+        updatePoint();
+      }
+
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+          inputEl.blur();
+        }
+      });
+
+      inputEl.addEventListener('blur', commit);
+    }
+
+    wireNumberInput(bikingValue, bikingSlider);
+    wireNumberInput(smokingValue, smokingSlider);
+
     resetBtn.addEventListener('click', reset);
     function resetView() {
       camera.position.copy(viewDefaults.position);
