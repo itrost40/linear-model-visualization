@@ -345,24 +345,43 @@
     // Small canvas-based labels to mark axes directions
     function createLabel(text, color = '#e8f1f2') {
       const dpr = window.devicePixelRatio || 1;
-      const baseWidth = 512;
-      const baseHeight = 256;
+      const baseHeight = 320;
+      const font = 'bold 72px Space Grotesk, sans-serif';
+
+      // Measure text to set canvas width with generous padding to avoid clipping
+      const measureCanvas = document.createElement('canvas');
+      const measureCtx = measureCanvas.getContext('2d');
+      measureCtx.font = font;
+      const metrics = measureCtx.measureText(text);
+      const padding = 120;
+      const baseWidth = Math.max(760, Math.ceil(metrics.width + padding * 2));
+
       const c = document.createElement('canvas');
       c.width = baseWidth * dpr;
       c.height = baseHeight * dpr;
       const ctx = c.getContext('2d');
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, baseWidth, baseHeight);
+
       ctx.fillStyle = color;
-      ctx.font = '48px Space Grotesk, sans-serif';
+      ctx.font = font;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = 8;
       ctx.fillText(text, baseWidth / 2, baseHeight / 2);
+
       const texture = new THREE.CanvasTexture(c);
       texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false
+      });
       const sprite = new THREE.Sprite(material);
-      sprite.scale.set(12, 6, 1);
+      sprite.renderOrder = 10; // draw on top of opaque geometry
+      sprite.scale.set(baseWidth / 45, baseHeight / 40, 1);
       return sprite;
     }
 
@@ -441,6 +460,48 @@
     stem.visible = false;
     scene.add(stem);
 
+    function createPointLabel() {
+      const dpr = window.devicePixelRatio || 1;
+      const width = 820;
+      const height = 260;
+      const canvas = document.createElement('canvas');
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false
+      });
+      const sprite = new THREE.Sprite(material);
+      sprite.renderOrder = 15; // above other labels/geometry
+      sprite.scale.set(width / 55, height / 55, 1);
+
+      function update(text) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.font = 'bold 64px Space Grotesk, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.strokeText(text, width / 2, height / 2);
+        ctx.shadowColor = 'rgba(0,0,0,0.45)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#f4a259';
+        ctx.fillText(text, width / 2, height / 2);
+        texture.needsUpdate = true;
+      }
+
+      return { sprite, update };
+    }
+
+    const pointLabel = createPointLabel();
+    scene.add(pointLabel.sprite);
+
     function clamp(val, min, max) {
       return Math.min(Math.max(val, min), max);
     }
@@ -458,6 +519,9 @@
       stem.visible = true;
       stem.position.set(biking, smoking, predicted / 2);
       stem.scale.set(1, predicted, 1);
+
+      pointLabel.update(`Heart disease: ${predicted.toFixed(2)}%`);
+      pointLabel.sprite.position.set(biking, smoking, predicted + 3);
     }
 
     function reset() {
